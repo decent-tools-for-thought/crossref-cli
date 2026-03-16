@@ -15,8 +15,11 @@ For a local pacman package build on Arch Linux:
 
 ```bash
 makepkg -si
-pacman -Ql crossref-tool
+pacman -Ql crossref-cli-git
 ```
+
+For an AUR-style VCS package, this repository ships `PKGBUILD` for `crossref-cli-git`.
+That is the correct Arch package form until tagged upstream releases exist.
 
 ### Basic Usage
 
