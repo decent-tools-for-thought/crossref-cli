@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/crossref_tool/__init__.py
+src/crossref_tool/__main__.py
+src/crossref_tool/cli.py
+src/crossref_tool/config.py
+src/crossref_tool/core.py
+src/crossref_tool/http.py
+src/crossref_tool.egg-info/PKG-INFO
+src/crossref_tool.egg-info/SOURCES.txt
+src/crossref_tool.egg-info/dependency_links.txt
+src/crossref_tool.egg-info/entry_points.txt
+src/crossref_tool.egg-info/top_level.txt
+tests/test_core.py

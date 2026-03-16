@@ -1,0 +1,14 @@
+pkgbase = crossref-tool
+	pkgdesc = Crossref REST API CLI for DOI and metadata workflows
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://api.crossref.org/
+	arch = any
+	license = custom
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+
+pkgname = crossref-tool

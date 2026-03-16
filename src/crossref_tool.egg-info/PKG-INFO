@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: crossref-tool
+Version: 0.1.0
+Summary: Crossref REST API CLI
+Requires-Python: >=3.11
