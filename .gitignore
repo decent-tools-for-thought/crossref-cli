@@ -1,2 +1,10 @@
 /PROJECT_OUTLINE.md
 *.zst
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+crossref-cli/
+crossref-cli-*.tar.gz
+src/crossref-cli-*/
