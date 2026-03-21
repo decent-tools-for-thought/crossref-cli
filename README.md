@@ -6,19 +6,16 @@ A specialized command-line tool for the Crossref REST API, designed for DOI-cent
 
 ### Installation
 ```bash
-pip install crossref-tool
-# or
-makepkg -si
+uv tool install crossref-tool
 ```
 
-For a local pacman package build on Arch Linux:
+Tagged GitHub releases publish Python distribution artifacts built from the remote tag.
 
+### Development
 ```bash
-makepkg -si
-pacman -Ql crossref-cli
+uv sync
+uv run crossref --help
 ```
-
-This repository now ships a fixed-release Arch package for tagged releases.
 
 ### Basic Usage
 
