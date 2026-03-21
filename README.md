@@ -143,7 +143,7 @@ crossref format export \
 
 ## Configuration
 
-### Global Config (`~/.config/crossref-tool/config.toml`)
+### Global Config (`$XDG_CONFIG_HOME/crossref-tool/config.toml`, default `~/.config/crossref-tool/config.toml`)
 ```toml
 [api]
 base_url = "https://api.crossref.org"
