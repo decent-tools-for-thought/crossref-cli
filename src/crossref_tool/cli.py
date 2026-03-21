@@ -62,10 +62,10 @@ def _configure_resource_list_parser(parser: argparse.ArgumentParser, *, include_
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="crossref")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")
 
     works = subparsers.add_parser("works")
-    works_sub = works.add_subparsers(dest="works_command", required=True)
+    works_sub = works.add_subparsers(dest="works_command")
     works_search = works_sub.add_parser("search")
     _configure_work_list_parser(works_search)
     works_fetch = works_sub.add_parser("fetch")
@@ -75,7 +75,7 @@ def _parser() -> argparse.ArgumentParser:
     works_fetch.add_argument("--format", choices=["json", "text"])
 
     preprints = subparsers.add_parser("preprints")
-    preprints_sub = preprints.add_subparsers(dest="preprints_command", required=True)
+    preprints_sub = preprints.add_subparsers(dest="preprints_command")
     preprints_search = preprints_sub.add_parser("search")
     _configure_work_list_parser(preprints_search)
     preprints_search.add_argument("--relationship")
@@ -90,7 +90,7 @@ def _parser() -> argparse.ArgumentParser:
     preprints_range.add_argument("--relationship")
 
     members = subparsers.add_parser("members")
-    members_sub = members.add_subparsers(dest="members_command", required=True)
+    members_sub = members.add_subparsers(dest="members_command")
     members_search = members_sub.add_parser("search")
     _configure_resource_list_parser(members_search)
     members_fetch = members_sub.add_parser("fetch")
@@ -101,7 +101,7 @@ def _parser() -> argparse.ArgumentParser:
     _configure_work_list_parser(members_works)
 
     journals = subparsers.add_parser("journals")
-    journals_sub = journals.add_subparsers(dest="journals_command", required=True)
+    journals_sub = journals.add_subparsers(dest="journals_command")
     journals_search = journals_sub.add_parser("search")
     _configure_resource_list_parser(journals_search)
     journals_fetch = journals_sub.add_parser("fetch")
@@ -112,7 +112,7 @@ def _parser() -> argparse.ArgumentParser:
     _configure_work_list_parser(journals_works)
 
     funders = subparsers.add_parser("funders")
-    funders_sub = funders.add_subparsers(dest="funders_command", required=True)
+    funders_sub = funders.add_subparsers(dest="funders_command")
     funders_search = funders_sub.add_parser("search")
     _configure_resource_list_parser(funders_search)
     funders_fetch = funders_sub.add_parser("fetch")
@@ -123,7 +123,7 @@ def _parser() -> argparse.ArgumentParser:
     _configure_work_list_parser(funders_works)
 
     prefixes = subparsers.add_parser("prefixes")
-    prefixes_sub = prefixes.add_subparsers(dest="prefixes_command", required=True)
+    prefixes_sub = prefixes.add_subparsers(dest="prefixes_command")
     prefixes_list = prefixes_sub.add_parser("list")
     _configure_resource_list_parser(prefixes_list, include_query=False)
     prefixes_fetch = prefixes_sub.add_parser("fetch")
@@ -134,7 +134,7 @@ def _parser() -> argparse.ArgumentParser:
     _configure_work_list_parser(prefixes_works)
 
     types = subparsers.add_parser("types")
-    types_sub = types.add_subparsers(dest="types_command", required=True)
+    types_sub = types.add_subparsers(dest="types_command")
     types_list = types_sub.add_parser("list")
     _configure_resource_list_parser(types_list, include_query=False)
     types_fetch = types_sub.add_parser("fetch")
@@ -145,7 +145,7 @@ def _parser() -> argparse.ArgumentParser:
     _configure_work_list_parser(types_works)
 
     licenses = subparsers.add_parser("licenses")
-    licenses_sub = licenses.add_subparsers(dest="licenses_command", required=True)
+    licenses_sub = licenses.add_subparsers(dest="licenses_command")
     licenses_list = licenses_sub.add_parser("list")
     _configure_resource_list_parser(licenses_list, include_query=False)
 
@@ -159,7 +159,7 @@ def _parser() -> argparse.ArgumentParser:
     doi.add_argument("--format", choices=["json", "text"])
 
     fmt = subparsers.add_parser("format")
-    fmt_sub = fmt.add_subparsers(dest="format_command", required=True)
+    fmt_sub = fmt.add_subparsers(dest="format_command")
     export = fmt_sub.add_parser("export")
     export.add_argument("query", nargs="?")
     export.add_argument("--filter", action="append", default=[])
@@ -170,7 +170,7 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--format", dest="export_format", choices=["bib", "ris", "csl-json"], required=True)
 
     config = subparsers.add_parser("config")
-    config_sub = config.add_subparsers(dest="config_command", required=True)
+    config_sub = config.add_subparsers(dest="config_command")
     config_sub.add_parser("show")
     config_sub.add_parser("reset")
     config_set = config_sub.add_parser("set")
@@ -215,6 +215,29 @@ def _update_config(config: dict[str, Any], field: str, value: str) -> dict[str, 
 def main(argv: list[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
+    if args.command is None:
+        parser.print_help()
+        return 0
+    help_attr_by_command = {
+        "works": "works_command",
+        "preprints": "preprints_command",
+        "members": "members_command",
+        "journals": "journals_command",
+        "funders": "funders_command",
+        "prefixes": "prefixes_command",
+        "types": "types_command",
+        "licenses": "licenses_command",
+        "format": "format_command",
+        "config": "config_command",
+    }
+    help_attr = help_attr_by_command.get(args.command)
+    if help_attr and getattr(args, help_attr) is None:
+        next(
+            action
+            for action in parser._actions
+            if isinstance(action, argparse._SubParsersAction)
+        ).choices[args.command].print_help()
+        return 0
     config = load_config()
 
     try:
