@@ -9,7 +9,9 @@ from .config import load_config, reset_config, save_config
 from .core import CrossrefService, render_output
 
 
-def _add_query_controls(parser: argparse.ArgumentParser, *, include_query: bool = True, include_select: bool = True) -> None:
+def _add_query_controls(
+    parser: argparse.ArgumentParser, *, include_query: bool = True, include_select: bool = True
+) -> None:
     if include_query:
         parser.add_argument("query", nargs="?")
     parser.add_argument("--filter", action="append", default=[])
@@ -56,7 +58,9 @@ def _configure_work_list_parser(parser: argparse.ArgumentParser) -> None:
     _add_work_field_queries(parser)
 
 
-def _configure_resource_list_parser(parser: argparse.ArgumentParser, *, include_query: bool = True) -> None:
+def _configure_resource_list_parser(
+    parser: argparse.ArgumentParser, *, include_query: bool = True
+) -> None:
     _add_query_controls(parser, include_query=include_query, include_select=False)
 
 
@@ -167,20 +171,33 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--sort")
     export.add_argument("--order", choices=["asc", "desc"])
     export.add_argument("--limit", type=int, default=20)
-    export.add_argument("--format", dest="export_format", choices=["bib", "ris", "csl-json"], required=True)
+    export.add_argument(
+        "--format", dest="export_format", choices=["bib", "ris", "csl-json"], required=True
+    )
 
     config = subparsers.add_parser("config")
     config_sub = config.add_subparsers(dest="config_command")
     config_sub.add_parser("show")
     config_sub.add_parser("reset")
     config_set = config_sub.add_parser("set")
-    config_set.add_argument("field", choices=["email", "pool", "api-key", "default-rows", "max-rows", "default-format", "default-select"])
+    config_set.add_argument(
+        "field",
+        choices=[
+            "email",
+            "pool",
+            "api-key",
+            "default-rows",
+            "max-rows",
+            "default-format",
+            "default-select",
+        ],
+    )
     config_set.add_argument("value")
     return parser
 
 
 def _resolve_output_format(args: argparse.Namespace, config: dict[str, Any]) -> str:
-    return getattr(args, "format", None) or config["output"]["default_format"]
+    return str(getattr(args, "format", None) or config["output"]["default_format"])
 
 
 def _render_list_result(result: dict[str, Any], output_format: str) -> str:
@@ -233,9 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     help_attr = help_attr_by_command.get(args.command)
     if help_attr and getattr(args, help_attr) is None:
         next(
-            action
-            for action in parser._actions
-            if isinstance(action, argparse._SubParsersAction)
+            action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
         ).choices[args.command].print_help()
         return 0
     config = load_config()
@@ -273,7 +288,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 print(_render_list_result(result, output_format))
                 return 0
-            payload = service.fetch_work(args.doi, select=args.select, include_agency=args.include_agency)
+            payload = service.fetch_work(
+                args.doi, select=args.select, include_agency=args.include_agency
+            )
             print(render_output(payload, output_format))
             return 0
 
@@ -297,7 +314,9 @@ def main(argv: list[str] | None = None) -> int:
             elif args.preprints_command == "by-prefix":
                 result = service.preprints_by_prefix(prefix=args.prefix, **common)
             else:
-                result = service.preprints_by_date_range(from_date=args.from_date, until_date=args.until_date, **common)
+                result = service.preprints_by_date_range(
+                    from_date=args.from_date, until_date=args.until_date, **common
+                )
             print(_render_list_result(result, output_format))
             return 0
 

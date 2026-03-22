@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from copy import deepcopy
 import os
-from pathlib import Path
 import tomllib
+from copy import deepcopy
+from pathlib import Path
+from typing import Any
+
+ConfigDict = dict[str, dict[str, Any]]
+
 
 def _xdg_config_home() -> Path:
     configured = os.environ.get("XDG_CONFIG_HOME")
@@ -13,7 +17,7 @@ def _xdg_config_home() -> Path:
 CONFIG_DIR = _xdg_config_home() / "crossref-tool"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: ConfigDict = {
     "api": {
         "base_url": "https://api.crossref.org",
     },
@@ -33,17 +37,19 @@ DEFAULT_CONFIG = {
 }
 
 
-def _merge(base: dict, override: dict) -> dict:
+def _merge(base: ConfigDict, override: dict[str, Any]) -> ConfigDict:
     merged = deepcopy(base)
     for key, value in override.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _merge(merged[key], value)
-        else:
-            merged[key] = value
+        if not isinstance(value, dict):
+            continue
+        existing = merged.get(key, {})
+        section = deepcopy(existing)
+        section.update(value)
+        merged[key] = section
     return merged
 
 
-def load_config() -> dict:
+def load_config() -> ConfigDict:
     if not CONFIG_PATH.exists():
         return deepcopy(DEFAULT_CONFIG)
     with CONFIG_PATH.open("rb") as handle:
@@ -51,7 +57,7 @@ def load_config() -> dict:
     return _merge(DEFAULT_CONFIG, loaded)
 
 
-def save_config(config: dict) -> None:
+def save_config(config: ConfigDict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     lines = []
     for section, values in config.items():
@@ -69,7 +75,7 @@ def save_config(config: dict) -> None:
     CONFIG_PATH.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def reset_config() -> dict:
+def reset_config() -> ConfigDict:
     config = deepcopy(DEFAULT_CONFIG)
     save_config(config)
     return config

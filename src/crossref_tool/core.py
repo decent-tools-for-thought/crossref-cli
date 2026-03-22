@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 from urllib.parse import quote
 
 from .config import load_config
 from .http import HttpClient
 
 JsonDict = dict[str, Any]
+
+
+class HttpClientProtocol(Protocol):
+    def get_json(self, url: str, params: dict[str, Any] | None = None) -> Any: ...
+
+    def resolve_url(self, url: str, *, follow_redirects: bool) -> str: ...
 
 
 def _now() -> str:
@@ -116,7 +122,11 @@ def normalize_work(
     agency: str | None = None,
 ) -> JsonDict:
     doi = message.get("DOI")
-    licenses = [license_item.get("URL") for license_item in message.get("license") or [] if license_item.get("URL")]
+    licenses = [
+        license_item.get("URL")
+        for license_item in message.get("license") or []
+        if license_item.get("URL")
+    ]
     member_value = message.get("member")
     return {
         "backend": "crossref",
@@ -132,7 +142,9 @@ def normalize_work(
                 "given": author.get("given"),
                 "family": author.get("family"),
                 "sequence": author.get("sequence"),
-                "affiliation": [aff.get("name") for aff in author.get("affiliation") or [] if aff.get("name")],
+                "affiliation": [
+                    aff.get("name") for aff in author.get("affiliation") or [] if aff.get("name")
+                ],
                 "orcid": author.get("ORCID"),
             }
             for author in message.get("author") or []
@@ -154,7 +166,9 @@ def normalize_work(
         "rights": {
             "license": licenses,
             "copyright": message.get("copyright"),
-            "copyrightYear": message.get("published", {}).get("date-parts", [[None]])[0][0] if message.get("published") else None,
+            "copyrightYear": message.get("published", {}).get("date-parts", [[None]])[0][0]
+            if message.get("published")
+            else None,
         },
         "referenceCount": message.get("reference-count"),
         "isReferencedByCount": message.get("is-referenced-by-count"),
@@ -328,12 +342,18 @@ def export_records(records: list[JsonDict], export_format: str) -> str:
     if export_format == "csl-json":
         import json
 
-        return json.dumps([_work_to_csl_json(record) for record in records], indent=2, ensure_ascii=True)
+        return json.dumps(
+            [_work_to_csl_json(record) for record in records], indent=2, ensure_ascii=True
+        )
     raise ValueError(f"Unsupported export format: {export_format}")
 
 
 class CrossrefService:
-    def __init__(self, config: dict | None = None, client: HttpClient | None = None) -> None:
+    def __init__(
+        self,
+        config: JsonDict | None = None,
+        client: HttpClientProtocol | None = None,
+    ) -> None:
         self.config = config or load_config()
         pool = self.config["pool"]
         selected_pool = pool.get("default", "public")
@@ -443,7 +463,12 @@ class CrossrefService:
         )
         if max_results is not None and max_results < 1:
             raise ValueError("max-results must be >= 1")
-        if allow_cursor and params["cursor"] is None and max_results is not None and max_results > params["rows"]:
+        if (
+            allow_cursor
+            and params["cursor"] is None
+            and max_results is not None
+            and max_results > params["rows"]
+        ):
             params["cursor"] = "*"
 
         items: list[JsonDict] = []
@@ -481,18 +506,26 @@ class CrossrefService:
 
     def fetch_work(self, doi: str, *, select: str | None, include_agency: bool = False) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
-        params = {"select": fields} if select else ({"mailto": self.mailto} if self.mailto else None)
+        params = (
+            {"select": fields} if select else ({"mailto": self.mailto} if self.mailto else None)
+        )
         if params is not None and self.mailto and "mailto" not in params:
             params["mailto"] = self.mailto
-        payload = self.client.get_json(f"{self.base_url}/works/{_quote_path_value(normalize_doi(doi))}", params)
+        payload = self.client.get_json(
+            f"{self.base_url}/works/{_quote_path_value(normalize_doi(doi))}", params
+        )
         agency = None
         if include_agency:
             agency = self.fetch_work_agency(doi).get("agency")
-        return normalize_work(payload["message"], pool_used=self.pool_used, fields_requested=fields, agency=agency)
+        return normalize_work(
+            payload["message"], pool_used=self.pool_used, fields_requested=fields, agency=agency
+        )
 
     def fetch_work_agency(self, doi: str) -> JsonDict:
         params = {"mailto": self.mailto} if self.mailto else None
-        payload = self.client.get_json(f"{self.base_url}/works/{_quote_path_value(normalize_doi(doi))}/agency", params)
+        payload = self.client.get_json(
+            f"{self.base_url}/works/{_quote_path_value(normalize_doi(doi))}/agency", params
+        )
         message = payload["message"]
         agency = (message.get("agency") or {}).get("id")
         return {
@@ -524,7 +557,9 @@ class CrossrefService:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             "/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             query=query,
             filters=filters,
             select=fields,
@@ -540,11 +575,28 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def member_works(self, *, member_id: str, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, field_queries: dict[str, str] | None = None) -> JsonDict:
+    def member_works(
+        self,
+        *,
+        member_id: str,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        field_queries: dict[str, str] | None = None,
+    ) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             f"/members/{_quote_path_value(member_id)}/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             filters=filters,
             select=fields,
             rows=rows,
@@ -559,11 +611,28 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def journal_works(self, *, issn: str, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, field_queries: dict[str, str] | None = None) -> JsonDict:
+    def journal_works(
+        self,
+        *,
+        issn: str,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        field_queries: dict[str, str] | None = None,
+    ) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             f"/journals/{_quote_path_value(issn)}/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             filters=filters,
             select=fields,
             rows=rows,
@@ -578,11 +647,28 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def funder_works(self, *, funder_id: str, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, field_queries: dict[str, str] | None = None) -> JsonDict:
+    def funder_works(
+        self,
+        *,
+        funder_id: str,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        field_queries: dict[str, str] | None = None,
+    ) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             f"/funders/{_quote_path_value(funder_id)}/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             filters=filters,
             select=fields,
             rows=rows,
@@ -597,11 +683,28 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def prefix_works(self, *, prefix: str, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, field_queries: dict[str, str] | None = None) -> JsonDict:
+    def prefix_works(
+        self,
+        *,
+        prefix: str,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        field_queries: dict[str, str] | None = None,
+    ) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             f"/prefixes/{_quote_path_value(prefix)}/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             filters=filters,
             select=fields,
             rows=rows,
@@ -616,11 +719,28 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def type_works(self, *, type_id: str, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, field_queries: dict[str, str] | None = None) -> JsonDict:
+    def type_works(
+        self,
+        *,
+        type_id: str,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        field_queries: dict[str, str] | None = None,
+    ) -> JsonDict:
         fields = _select_fields(select, self.config["output"]["default_select"])
         return self._fetch_list(
             f"/types/{_quote_path_value(type_id)}/works",
-            normalize_item=lambda item: normalize_work(item, pool_used=self.pool_used, fields_requested=fields),
+            normalize_item=lambda item: normalize_work(
+                item, pool_used=self.pool_used, fields_requested=fields
+            ),
             filters=filters,
             select=fields,
             rows=rows,
@@ -635,10 +755,24 @@ class CrossrefService:
             allow_cursor=True,
         )
 
-    def search_members(self, *, query: str | None, filters: list[str], rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def search_members(
+        self,
+        *,
+        query: str | None,
+        filters: list[str],
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/members",
-            normalize_item=lambda item: normalize_resource(item, resource="member", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="member", pool_used=self.pool_used
+            ),
             query=query,
             filters=filters,
             rows=rows,
@@ -653,14 +787,30 @@ class CrossrefService:
     def fetch_member(self, member_id: str) -> JsonDict:
         return self._fetch_singleton(
             f"/members/{_quote_path_value(member_id)}",
-            normalize=lambda message: normalize_resource(message, resource="member", pool_used=self.pool_used),
+            normalize=lambda message: normalize_resource(
+                message, resource="member", pool_used=self.pool_used
+            ),
             params={"mailto": self.mailto} if self.mailto else None,
         )
 
-    def search_journals(self, *, query: str | None, filters: list[str], rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def search_journals(
+        self,
+        *,
+        query: str | None,
+        filters: list[str],
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/journals",
-            normalize_item=lambda item: normalize_resource(item, resource="journal", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="journal", pool_used=self.pool_used
+            ),
             query=query,
             filters=filters,
             rows=rows,
@@ -675,14 +825,30 @@ class CrossrefService:
     def fetch_journal(self, issn: str) -> JsonDict:
         return self._fetch_singleton(
             f"/journals/{_quote_path_value(issn)}",
-            normalize=lambda message: normalize_resource(message, resource="journal", pool_used=self.pool_used),
+            normalize=lambda message: normalize_resource(
+                message, resource="journal", pool_used=self.pool_used
+            ),
             params={"mailto": self.mailto} if self.mailto else None,
         )
 
-    def search_funders(self, *, query: str | None, filters: list[str], rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def search_funders(
+        self,
+        *,
+        query: str | None,
+        filters: list[str],
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/funders",
-            normalize_item=lambda item: normalize_resource(item, resource="funder", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="funder", pool_used=self.pool_used
+            ),
             query=query,
             filters=filters,
             rows=rows,
@@ -697,14 +863,28 @@ class CrossrefService:
     def fetch_funder(self, funder_id: str) -> JsonDict:
         return self._fetch_singleton(
             f"/funders/{_quote_path_value(funder_id)}",
-            normalize=lambda message: normalize_resource(message, resource="funder", pool_used=self.pool_used),
+            normalize=lambda message: normalize_resource(
+                message, resource="funder", pool_used=self.pool_used
+            ),
             params={"mailto": self.mailto} if self.mailto else None,
         )
 
-    def list_prefixes(self, *, rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def list_prefixes(
+        self,
+        *,
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/prefixes",
-            normalize_item=lambda item: normalize_resource(item, resource="prefix", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="prefix", pool_used=self.pool_used
+            ),
             rows=rows,
             offset=offset,
             sample=sample,
@@ -717,14 +897,28 @@ class CrossrefService:
     def fetch_prefix(self, prefix: str) -> JsonDict:
         return self._fetch_singleton(
             f"/prefixes/{_quote_path_value(prefix)}",
-            normalize=lambda message: normalize_resource(message, resource="prefix", pool_used=self.pool_used),
+            normalize=lambda message: normalize_resource(
+                message, resource="prefix", pool_used=self.pool_used
+            ),
             params={"mailto": self.mailto} if self.mailto else None,
         )
 
-    def list_types(self, *, rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def list_types(
+        self,
+        *,
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/types",
-            normalize_item=lambda item: normalize_resource(item, resource="type", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="type", pool_used=self.pool_used
+            ),
             rows=rows,
             offset=offset,
             sample=sample,
@@ -737,14 +931,28 @@ class CrossrefService:
     def fetch_type(self, type_id: str) -> JsonDict:
         return self._fetch_singleton(
             f"/types/{_quote_path_value(type_id)}",
-            normalize=lambda message: normalize_resource(message, resource="type", pool_used=self.pool_used),
+            normalize=lambda message: normalize_resource(
+                message, resource="type", pool_used=self.pool_used
+            ),
             params={"mailto": self.mailto} if self.mailto else None,
         )
 
-    def list_licenses(self, *, rows: int | None, offset: int | None, sample: int | None, sort: str | None, order: str | None, facets: list[str] | None, max_results: int | None) -> JsonDict:
+    def list_licenses(
+        self,
+        *,
+        rows: int | None,
+        offset: int | None,
+        sample: int | None,
+        sort: str | None,
+        order: str | None,
+        facets: list[str] | None,
+        max_results: int | None,
+    ) -> JsonDict:
         return self._fetch_list(
             "/licenses",
-            normalize_item=lambda item: normalize_resource(item, resource="license", pool_used=self.pool_used),
+            normalize_item=lambda item: normalize_resource(
+                item, resource="license", pool_used=self.pool_used
+            ),
             rows=rows,
             offset=offset,
             sample=sample,
@@ -754,7 +962,22 @@ class CrossrefService:
             max_results=max_results,
         )
 
-    def preprint_search(self, *, query: str | None, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, relationship: str | None = None) -> JsonDict:
+    def preprint_search(
+        self,
+        *,
+        query: str | None,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        relationship: str | None = None,
+    ) -> JsonDict:
         merged_filters = [*filters]
         merged_filters.append("type:posted-content")
         if relationship:
@@ -773,7 +996,23 @@ class CrossrefService:
             facets=facets,
         )
 
-    def preprints_by_prefix(self, *, prefix: str, query: str | None, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, relationship: str | None = None) -> JsonDict:
+    def preprints_by_prefix(
+        self,
+        *,
+        prefix: str,
+        query: str | None,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        relationship: str | None = None,
+    ) -> JsonDict:
         merged_filters = [*filters, f"prefix:{prefix}"]
         return self.preprint_search(
             query=query,
@@ -790,8 +1029,29 @@ class CrossrefService:
             relationship=relationship,
         )
 
-    def preprints_by_date_range(self, *, from_date: str, until_date: str, query: str | None, filters: list[str], select: str | None, rows: int | None, cursor: str | None, max_results: int | None, offset: int | None = None, sample: int | None = None, sort: str | None = None, order: str | None = None, facets: list[str] | None = None, relationship: str | None = None) -> JsonDict:
-        merged_filters = [*filters, f"from-posted-date:{from_date}", f"until-posted-date:{until_date}"]
+    def preprints_by_date_range(
+        self,
+        *,
+        from_date: str,
+        until_date: str,
+        query: str | None,
+        filters: list[str],
+        select: str | None,
+        rows: int | None,
+        cursor: str | None,
+        max_results: int | None,
+        offset: int | None = None,
+        sample: int | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        facets: list[str] | None = None,
+        relationship: str | None = None,
+    ) -> JsonDict:
+        merged_filters = [
+            *filters,
+            f"from-posted-date:{from_date}",
+            f"until-posted-date:{until_date}",
+        ]
         return self.preprint_search(
             query=query,
             filters=merged_filters,
@@ -820,7 +1080,16 @@ class CrossrefService:
             "provenance": _list_provenance(pool_used=self.pool_used),
         }
 
-    def doi_record(self, doi: str, *, resolve_only: bool = False, include_redirects: bool = False, check_registration: bool = False, include_agency: bool = False, select: str | None = None) -> JsonDict:
+    def doi_record(
+        self,
+        doi: str,
+        *,
+        resolve_only: bool = False,
+        include_redirects: bool = False,
+        check_registration: bool = False,
+        include_agency: bool = False,
+        select: str | None = None,
+    ) -> JsonDict:
         response: JsonDict = {
             "backend": "crossref",
             "resource": "doi",
@@ -837,7 +1106,17 @@ class CrossrefService:
             response["resolution"] = self.resolve_doi(doi, include_redirects=True)
         return response
 
-    def export_works(self, *, query: str | None, filters: list[str], select: str | None, limit: int, export_format: str, sort: str | None = None, order: str | None = None) -> str:
+    def export_works(
+        self,
+        *,
+        query: str | None,
+        filters: list[str],
+        select: str | None,
+        limit: int,
+        export_format: str,
+        sort: str | None = None,
+        order: str | None = None,
+    ) -> str:
         fields = _select_fields(select, self.config["output"]["default_select"])
         result = self.search_works(
             query=query,

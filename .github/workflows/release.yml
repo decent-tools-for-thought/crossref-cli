@@ -34,6 +34,9 @@ jobs:
           python -m pip install --upgrade build
           python -m build
 
+      - name: Generate checksums
+        run: sha256sum dist/* > dist/SHA256SUMS.txt
+
       - name: Verify wheel install
         run: |
           python -m venv .venv-wheel
@@ -69,5 +72,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            dist/SHA256SUMS.txt
             dist/*.tar.gz
             dist/*.whl
