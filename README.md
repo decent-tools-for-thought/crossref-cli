@@ -14,11 +14,11 @@ DOI-first command-line client for searching, filtering, resolving, and exporting
 > This codebase is entirely AI-generated. It is useful to me, I hope it might be useful to others, and issues and contributions are welcome.
 
 ## Map
+$$\color{#EAB308}Tool \space \color{#CA8A04}Map$$
 - [Install](#install)
 - [Functionality](#functionality)
 - [Configuration](#configuration)
 - [Quick Start](#quick-start)
-- [Development](#development)
 - [Credits](#credits)
 
 ## Install
@@ -28,14 +28,8 @@ uv tool install .
 crossref --help
 ```
 
-For local development:
-
-```bash
-uv sync
-uv run crossref --help
-```
-
 ## Functionality
+$$\color{#EAB308}Core \space \color{#CA8A04}Features$$
 
 ### Works
 - `crossref works search`: search works with free-text queries, Crossref filters, facets, sorting, pagination, sampling, cursor-based traversal, field selection, and `json`/`jsonl`/`text` output.
@@ -79,6 +73,7 @@ uv run crossref --help
 - `crossref config set default-rows`, `max-rows`, `default-format`, `default-select`: tune default query and output behavior.
 
 ## Configuration
+$$\color{#EAB308}User \space \color{#CA8A04}Config$$
 
 Using the polite pool is recommended:
 
@@ -89,6 +84,7 @@ crossref config show
 ```
 
 ## Quick Start
+$$\color{#EAB308}Quick \space \color{#CA8A04}Start$$
 
 ```bash
 crossref works search "machine learning interpretability" \
@@ -107,14 +103,8 @@ crossref format export \
   --limit 20
 ```
 
-## Development
-
-```bash
-uv run ruff check src tests
-uv run mypy
-```
-
 ## Credits
+$$\color{#EAB308}Project \space \color{#CA8A04}Credits$$
 
 This client is built for Crossref's REST API and is not affiliated with Crossref.
 
