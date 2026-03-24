@@ -30,7 +30,9 @@ class HttpClient:
                     ) from exc
             except URLError as exc:
                 if attempt == 4:
-                    raise RuntimeError(f"Request failed: {request_url}") from exc
+                    raise RuntimeError(
+                        f"Request failed: {request_url} ({exc.reason})"
+                    ) from exc
             time.sleep(backoff + random.uniform(0.0, backoff * 0.25))
             backoff = min(backoff * 2, 8.0)
 
@@ -43,7 +45,7 @@ class HttpClient:
             except HTTPError as exc:
                 raise RuntimeError(f"Request failed with HTTP {exc.code}: {url}") from exc
             except URLError as exc:
-                raise RuntimeError(f"Request failed: {url}") from exc
+                raise RuntimeError(f"Request failed: {url} ({exc.reason})") from exc
 
         class _NoRedirectHandler(HTTPRedirectHandler):
             def redirect_request(
@@ -69,4 +71,4 @@ class HttpClient:
                 return location
             raise RuntimeError(f"Request failed with HTTP {exc.code}: {url}") from exc
         except URLError as exc:
-            raise RuntimeError(f"Request failed: {url}") from exc
+            raise RuntimeError(f"Request failed: {url} ({exc.reason})") from exc
