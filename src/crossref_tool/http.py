@@ -31,9 +31,7 @@ class HttpClient:
             except URLError as exc:
                 if attempt == 4:
                     reason = str(exc.reason)
-                    raise RuntimeError(
-                        f"Request failed: {request_url} ({reason})"
-                    ) from exc
+                    raise RuntimeError(f"Request failed: {request_url} ({reason})") from exc
             time.sleep(backoff + random.uniform(0.0, backoff * 0.25))
             backoff = min(backoff * 2, 8.0)
 
