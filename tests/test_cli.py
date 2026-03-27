@@ -12,6 +12,14 @@ from crossref_tool import cli
 
 
 class CliTests(unittest.TestCase):
+    def test_main_without_arguments_prints_help_and_exits_zero(self) -> None:
+        stdout = StringIO()
+        with patch("sys.stdout", stdout):
+            exit_code = cli.main([])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("usage: crossref", stdout.getvalue())
+
     def test_main_uses_default_output_format_from_config(self) -> None:
         config = {
             "api": {"base_url": "https://api.crossref.org"},
