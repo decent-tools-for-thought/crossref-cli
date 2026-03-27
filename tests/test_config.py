@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -36,13 +37,22 @@ class ConfigTests(unittest.TestCase):
         with TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
             config_path = config_dir / "config.toml"
-            config = {
-                "api": {"base_url": "https://api.crossref.org"},
-                "pool": {"default": "polite", "email": "user@example.com", "api_key": ""},
-                "works": {"default_rows": 25, "max_rows": 250},
-                "cache": {"enabled": True, "ttl_seconds": 300},
-                "output": {"default_format": "json", "default_select": 'DOI,title,"quoted"'},
-            }
+            config = cast(
+                config_module.ConfigDict,
+                {
+                    "api": {"base_url": "https://api.crossref.org"},
+                    "pool": {
+                        "default": "polite",
+                        "email": "user@example.com",
+                        "api_key": "",
+                    },
+                    "works": {"default_rows": 25, "max_rows": 250},
+                    "output": {
+                        "default_format": "json",
+                        "default_select": 'DOI,title,"quoted"',
+                    },
+                },
+            )
 
             with (
                 patch.object(config_module, "CONFIG_DIR", config_dir),
@@ -52,8 +62,6 @@ class ConfigTests(unittest.TestCase):
 
             content = config_path.read_text(encoding="utf-8")
 
-        self.assertIn("[cache]", content)
-        self.assertIn("enabled = true", content)
         self.assertIn('default_select = "DOI,title,\\"quoted\\""', content)
 
     def test_reset_config_restores_defaults_and_writes_file(self) -> None:
